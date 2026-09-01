@@ -28,7 +28,6 @@ module.exports = async function handler(req, res) {
         : 0,
       timestamp: new Date().toISOString()
     });
-
   } catch (error) {
     console.error('Health check failed:', {
       message: error.message,
@@ -40,7 +39,7 @@ module.exports = async function handler(req, res) {
       ok: false,
       service: 'shoba-ai-backend',
       wordpress: 'unreachable',
-      error: 'Unable to reach the SHOBA WordPress REST API.'
+      error: error.message || 'Unable to reach the SHOBA WordPress REST API.'
     });
   }
 };
