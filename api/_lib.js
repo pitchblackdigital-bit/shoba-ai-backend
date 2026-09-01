@@ -7,7 +7,9 @@ function getEnv(name) {
   const value = process.env[name];
 
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new Error(
+      `Missing required environment variable: ${name}`
+    );
   }
 
   return value;
@@ -96,23 +98,25 @@ async function wordpressFetch(path, params = {}) {
   });
 
   /*
-   * SHOBA WordPress listings are publicly readable.
+   * First attempt:
+   * Public WordPress REST API request.
    *
-   * Bluehost/security layers can reject requests containing
-   * an Authorization header even when the credentials are valid.
-   *
-   * Therefore, try the public REST request first.
+   * This is important because GET requests for the
+   * public job listings should not require authentication.
    */
   let response = await fetch(url, {
+    method: 'GET',
     headers: {
-      Accept: 'application/json'
+      'Accept': 'application/json',
+      'User-Agent': 'SHOBA-AI-Backend/1.0'
     },
     cache: 'no-store'
   });
 
   /*
-   * If WordPress specifically requires authentication,
-   * retry once using the WordPress Application Password.
+   * If Bluehost/WordPress rejects the public request
+   * with 401/403, try once with the WordPress
+   * Application Password.
    */
   if (
     (response.status === 401 ||
@@ -121,9 +125,11 @@ async function wordpressFetch(path, params = {}) {
     process.env.WORDPRESS_APP_PASSWORD
   ) {
     response = await fetch(url, {
+      method: 'GET',
       headers: {
-        Authorization: wordpressAuth(),
-        Accept: 'application/json'
+        'Accept': 'application/json',
+        'User-Agent': 'SHOBA-AI-Backend/1.0',
+        'Authorization': wordpressAuth()
       },
       cache: 'no-store'
     });
@@ -148,6 +154,9 @@ async function wordpressFetch(path, params = {}) {
 
     error.status = response.status;
     error.wordpress = data;
+    error.responseHeaders = Object.fromEntries(
+      response.headers.entries()
+    );
 
     throw error;
   }
