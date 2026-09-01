@@ -1,4 +1,8 @@
-const { cors, wordpressFetch, sendJson } = require('./_lib');
+const {
+  cors,
+  wordpressFetch,
+  sendJson
+} = require('./_lib');
 
 module.exports = async function handler(req, res) {
   cors(req, res);
@@ -15,9 +19,12 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const result = await wordpressFetch('job-listings', {
-      per_page: 1
-    });
+    const result = await wordpressFetch(
+      'job-listings',
+      {
+        per_page: 1
+      }
+    );
 
     return sendJson(res, 200, {
       ok: true,
@@ -28,18 +35,27 @@ module.exports = async function handler(req, res) {
         : 0,
       timestamp: new Date().toISOString()
     });
+
   } catch (error) {
-    console.error('Health check failed:', {
-      message: error.message,
-      status: error.status,
-      wordpress: error.wordpress
-    });
+    console.error(
+      'Health check failed:',
+      error
+    );
 
     return sendJson(res, 502, {
       ok: false,
       service: 'shoba-ai-backend',
       wordpress: 'unreachable',
-      error: error.message || 'Unable to reach the SHOBA WordPress REST API.'
+
+      status: error.status || null,
+
+      error: error.message,
+
+      wordpress_error:
+        error.wordpress || null,
+
+      response_headers:
+        error.responseHeaders || null
     });
   }
 };
