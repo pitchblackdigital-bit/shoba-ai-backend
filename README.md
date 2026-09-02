@@ -1,43 +1,17 @@
-# SHOBA AI Backend
+# SHOBA AI Backend v1.2
 
-Secure server-side API layer for the SHOBA Connect WordPress business directory.
+Secure API layer and first discovery-engine implementation for SHOBA Connect.
 
 ## Endpoints
+- `GET /api/health` — WordPress connectivity check
+- `GET /api/ready` — required environment check
+- `GET /api/listings` — authenticated WordPress listing retrieval
+- `GET /api/discover?q=...&location=...&category=...` — authenticated ranked discovery
 
-- `GET /api/health` — confirms the backend can reach WordPress.
-- `GET /api/listings` — searches and filters published `job_listing` posts.
-- `GET /api/listings/:id` — retrieves one listing.
+Authentication: `X-SHOBA-API-Key` or `Authorization: Bearer <key>`.
 
-Supported `/api/listings` query parameters:
+## Boundary
+SHOBA owns discovery, records, enrichment, verification states and ecosystem intelligence. VEESBLE remains responsible for website intelligence, audit evidence, diagnosis and scoring.
 
-- `search`
-- `location`
-- `category`
-- `region`
-- `type`
-- `tag`
-- `page`
-- `per_page`
-
-Authentication for listing endpoints:
-
-- `X-SHOBA-API-Key: <SHOBA_API_KEY>`
-- or `Authorization: Bearer <SHOBA_API_KEY>`
-
-## Vercel environment variables
-
-Set these in Vercel. Never commit them to GitHub.
-
-- `WORDPRESS_URL=https://shobaconnect.com`
-- `WORDPRESS_USERNAME=<your WordPress username>`
-- `WORDPRESS_APP_PASSWORD=<a WordPress Application Password>`
-- `SHOBA_API_KEY=<a long random API key>`
-- `ALLOWED_ORIGINS=https://shobaconnect.com,https://www.shobaconnect.com`
-
-The WordPress application password is used only server-side. It is never sent to the browser or AI client.
-
-## Intended architecture
-
-SHOBA WordPress → Vercel backend → future AI chat interface.
-
-The backend reads real WordPress data; it does not create fake businesses or modify the existing SHOBA WordPress site.
+## Important
+This package does not auto-publish discovered businesses. External discovery candidates remain subject to deduplication, provenance, ownership verification, business-status checks and SHOBA review before publication.
