@@ -4,6 +4,8 @@ const {
   wordpressRequest,
   sendJson,
   normalizeText,
+  normalizeUrl,
+  normalizePhone,
   makeSlug
 } = require('../_lib');
 
@@ -75,7 +77,7 @@ function buildPayload(business) {
       business.service_model;
   }
 
-  const payload = {
+  return {
     title: {
       raw: name
     },
@@ -88,13 +90,71 @@ function buildPayload(business) {
 
     meta
   };
+}
 
-  return payload;
+async function fetchAllListings() {
+  const listings = [];
+  let page = 1;
+
+  while (page <= 20) {
+    const result = await wordpressRequest(
+      'job-listings',
+      {
+        method: 'GET',
+        params: {
+          per_page: 100,
+          page,
+          context: 'view'
+        }
+      }
+    );
+
+    const items = Array.isArray(result.data)
+      ? result.data
+      : [];
+
+    listings.push(...items);
+
+    if (items.length < 100) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return listings;
 }
 
 async function findExisting(business, slug) {
-  const matches = [];
+  const matches = new Map();
 
+  const addMatch = (reason, item) => {
+    if (!item || !item.id) return;
+
+    const existing = matches.get(item.id);
+
+    if (existing) {
+      if (!existing.reasons.includes(reason)) {
+        existing.reasons.push(reason);
+      }
+      return;
+    }
+
+    matches.set(item.id, {
+      reasons: [reason],
+      id: item.id,
+      slug: item.slug,
+      title: item.title?.rendered || '',
+      status: item.status,
+      link: item.link
+    });
+  };
+
+  const name = String(business.name || '').trim();
+
+  /*
+   * First check the exact slug directly.
+   */
   if (slug) {
     try {
       const result = await wordpressRequest(
@@ -110,22 +170,16 @@ async function findExisting(business, slug) {
       );
 
       if (Array.isArray(result.data)) {
-        matches.push(
-          ...result.data.map(item => ({
-            reason: 'slug',
-            id: item.id,
-            slug: item.slug,
-            title: item.title?.rendered || '',
-            status: item.status,
-            link: item.link
-          }))
-        );
+        for (const item of result.data) {
+          addMatch('slug', item);
+        }
       }
     } catch {}
   }
 
-  const name = String(business.name || '').trim();
-
+  /*
+   * Check exact normalized business name.
+   */
   if (name) {
     try {
       const result = await wordpressRequest(
@@ -150,27 +204,67 @@ async function findExisting(business, slug) {
             );
 
           if (existingTitle === normalizedName) {
-            matches.push({
-              reason: 'exact_title',
-              id: item.id,
-              slug: item.slug,
-              title: item.title?.rendered || '',
-              status: item.status,
-              link: item.link
-            });
+            addMatch('exact_title', item);
           }
         }
       }
     } catch {}
   }
 
-  const unique = new Map();
+  /*
+   * Independently check website and phone.
+   *
+   * This is deliberately separate from slug/title
+   * checking so a business with a changed name or
+   * changed slug can still be detected.
+   */
+  const incomingWebsite =
+    normalizeUrl(business.website);
 
-  for (const match of matches) {
-    unique.set(match.id, match);
+  const incomingPhone =
+    normalizePhone(business.phone);
+
+  if (incomingWebsite || incomingPhone) {
+    try {
+      const listings = await fetchAllListings();
+
+      for (const item of listings) {
+        const meta = item.meta || {};
+
+        const existingWebsite =
+          normalizeUrl(
+            meta._job_website ??
+            item._job_website ??
+            ''
+          );
+
+        const existingPhone =
+          normalizePhone(
+            meta._job_phone ??
+            item._job_phone ??
+            ''
+          );
+
+        if (
+          incomingWebsite &&
+          existingWebsite &&
+          incomingWebsite === existingWebsite
+        ) {
+          addMatch('website', item);
+        }
+
+        if (
+          incomingPhone &&
+          existingPhone &&
+          incomingPhone === existingPhone
+        ) {
+          addMatch('phone', item);
+        }
+      }
+    } catch {}
   }
 
-  return Array.from(unique.values());
+  return Array.from(matches.values());
 }
 
 module.exports = async function handler(req, res) {
