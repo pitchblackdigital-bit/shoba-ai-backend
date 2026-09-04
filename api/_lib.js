@@ -1,3 +1,4 @@
+
 const crypto = require('crypto');
 
 const DEFAULT_ORIGINS = [
@@ -31,7 +32,10 @@ function cors(req, res) {
   }
 
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET,POST,OPTIONS'
+  );
   res.setHeader(
     'Access-Control-Allow-Headers',
     'Content-Type, Authorization, X-SHOBA-API-Key'
@@ -44,7 +48,10 @@ function requireApiKey(req) {
 
   const supplied =
     req.headers['x-shoba-api-key'] ||
-    (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    (req.headers.authorization || '').replace(
+      /^Bearer\s+/i,
+      ''
+    );
 
   if (!supplied || supplied.length !== expected.length) {
     return false;
@@ -67,47 +74,46 @@ function wordpressAuth() {
   ).toString('base64')}`;
 }
 
-async function wordpressFetch(path, params = {}) {
+async function wordpressRequest(path, options = {}) {
   const base = getEnv('WORDPRESS_URL').replace(/\/$/, '');
 
   const url = new URL(
     `${base}/wp-json/wp/v2/${path.replace(/^\//, '')}`
   );
 
-  Object.entries(params).forEach(([key, value]) => {
-    if (
-      value !== undefined &&
-      value !== null &&
-      value !== ''
-    ) {
-      url.searchParams.set(key, String(value));
+  Object.entries(options.params || {}).forEach(
+    ([key, value]) => {
+      if (
+        value !== undefined &&
+        value !== null &&
+        value !== ''
+      ) {
+        url.searchParams.set(key, String(value));
+      }
     }
-  });
+  );
 
-  let response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'SHOBA-AI-Backend/1.2'
-    },
+  const method = options.method || 'GET';
+
+  const headers = {
+    Accept: 'application/json',
+    'User-Agent': 'SHOBA-AI-Backend/1.3',
+    Authorization: wordpressAuth()
+  };
+
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(url, {
+    method,
+    headers,
+    body:
+      options.body !== undefined
+        ? JSON.stringify(options.body)
+        : undefined,
     cache: 'no-store'
   });
-
-  if (
-    (response.status === 401 || response.status === 403) &&
-    process.env.WORDPRESS_USERNAME &&
-    process.env.WORDPRESS_APP_PASSWORD
-  ) {
-    response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'SHOBA-AI-Backend/1.2',
-        Authorization: wordpressAuth()
-      },
-      cache: 'no-store'
-    });
-  }
 
   const text = await response.text();
 
@@ -116,7 +122,9 @@ async function wordpressFetch(path, params = {}) {
   try {
     data = JSON.parse(text);
   } catch {
-    data = { raw: text };
+    data = {
+      raw: text
+    };
   }
 
   if (!response.ok) {
@@ -138,6 +146,13 @@ async function wordpressFetch(path, params = {}) {
   };
 }
 
+async function wordpressFetch(path, params = {}) {
+  return wordpressRequest(path, {
+    method: 'GET',
+    params
+  });
+}
+
 function stripHtml(value) {
   return String(value || '')
     .replace(/<[^>]*>/g, ' ')
@@ -153,18 +168,40 @@ function cleanListing(item) {
   return {
     id: item.id,
     slug: item.slug,
-    title: stripHtml(item.title?.rendered),
-    description: stripHtml(item.content?.rendered),
-    excerpt: stripHtml(item.excerpt?.rendered),
+
+    title: stripHtml(
+      item.title?.rendered
+    ),
+
+    description: stripHtml(
+      item.content?.rendered
+    ),
+
+    excerpt: stripHtml(
+      item.excerpt?.rendered
+    ),
+
     date: item.date,
     modified: item.modified,
     status: item.status,
     link: item.link,
-    featured_media: item.featured_media || null,
+
+    featured_media:
+      item.featured_media || null,
 
     location:
-      meta.job_listing_location ??
-      item.job_listing_location ??
+      meta._job_location ??
+      item._job_location ??
+      null,
+
+    latitude:
+      meta.geo_latitude ??
+      item.geo_latitude ??
+      null,
+
+    longitude:
+      meta.geo_longitude ??
+      item.geo_longitude ??
       null,
 
     company:
@@ -172,40 +209,117 @@ function cleanListing(item) {
       item._company_name ??
       null,
 
-    website:
-      meta._company_website ??
-      item._company_website ??
-      null,
-
     phone:
-      meta._company_phone ??
-      item._company_phone ??
+      meta._job_phone ??
+      item._job_phone ??
       null,
 
     email:
-      meta._application ??
-      item._application ??
+      meta._job_email ??
+      item._job_email ??
       null,
 
-    categories: item.job_listing_category || [],
-    regions: item.job_listing_region || [],
-    types: item.job_listing_type || [],
-    tags: item.job_listing_tag || [],
-    amenities: item.job_listing_amenity || []
+    website:
+      meta._job_website ??
+      item._job_website ??
+      null,
+
+    ownership_status:
+      meta._shobaownershipstatus ??
+      item._shobaownershipstatus ??
+      null,
+
+    verification_status:
+      meta._shobaverificationstatus ??
+      item._shobaverificationstatus ??
+      null,
+
+    business_type:
+      meta._shobabusinesstype ??
+      item._shobabusinesstype ??
+      null,
+
+    service_model:
+      meta._shobaservicemodel ??
+      item._shobaservicemodel ??
+      null,
+
+    categories:
+      item.job_listing_category || [],
+
+    regions:
+      item.job_listing_region || [],
+
+    types:
+      item.job_listing_type || [],
+
+    tags:
+      item.job_listing_tag || [],
+
+    amenities:
+      item.job_listing_amenity || []
   };
 }
 
 function sendJson(res, status, body) {
-  res.status(status).json(body);
+  return res.status(status).json(body);
+}
+
+function normalizeText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeUrl(value) {
+  if (!value) return '';
+
+  try {
+    const url = new URL(
+      String(value).trim()
+    );
+
+    return url.hostname
+      .toLowerCase()
+      .replace(/^www\./, '');
+  } catch {
+    return String(value)
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .split('/')[0]
+      .trim();
+  }
+}
+
+function normalizePhone(value) {
+  return String(value || '')
+    .replace(/\D/g, '');
+}
+
+function makeSlug(title) {
+  return normalizeText(title)
+    .replace(/\s+/g, '-')
+    .slice(0, 180);
 }
 
 module.exports = {
   cors,
   requireApiKey,
   wordpressFetch,
+  wordpressRequest,
   wordpressAuth,
   sendJson,
   cleanListing,
   stripHtml,
+  normalizeText,
+  normalizeUrl,
+  normalizePhone,
+  makeSlug,
   getEnv
-};
+}; 
