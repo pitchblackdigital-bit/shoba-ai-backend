@@ -73,4 +73,13 @@ function cleanListing(item) {
 }
 
 function sendJson(res, status, body) { res.status(status).json(body); }
-module.exports = { cors, requireApiKey, wordpressFetch, sendJson, cleanListing, stripHtml, getEnv };
+module.exports = {
+  cors,
+  requireApiKey,
+  wordpressFetch,
+  wordpressAuth,
+  sendJson,
+  cleanListing,
+  stripHtml,
+  getEnv
+};
