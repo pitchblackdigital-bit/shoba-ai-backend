@@ -4,6 +4,8 @@ const {
   wordpressRequest,
   sendJson,
   normalizeText,
+  normalizeUrl,
+  normalizePhone,
   makeSlug
 } = require('../_lib');
 
@@ -90,9 +92,70 @@ function buildPayload(business) {
   };
 }
 
-async function findExisting(business, slug) {
-  const matches = [];
+async function fetchAllListings() {
+  const listings = [];
+  let page = 1;
 
+  while (page <= 20) {
+    const result = await wordpressRequest(
+      'job-listings',
+      {
+        method: 'GET',
+        params: {
+          per_page: 100,
+          page,
+          context: 'view'
+        }
+      }
+    );
+
+    const items = Array.isArray(result.data)
+      ? result.data
+      : [];
+
+    listings.push(...items);
+
+    if (items.length < 100) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return listings;
+}
+
+async function findExisting(business, slug) {
+  const matches = new Map();
+
+  const addMatch = (reason, item) => {
+    if (!item || !item.id) return;
+
+    const existing = matches.get(item.id);
+
+    if (existing) {
+      if (!existing.reasons.includes(reason)) {
+        existing.reasons.push(reason);
+      }
+
+      return;
+    }
+
+    matches.set(item.id, {
+      reasons: [reason],
+      id: item.id,
+      slug: item.slug,
+      title: item.title?.rendered || '',
+      status: item.status,
+      link: item.link
+    });
+  };
+
+  const name = String(business.name || '').trim();
+
+  /*
+   * Check exact slug.
+   */
   if (slug) {
     try {
       const result = await wordpressRequest(
@@ -108,22 +171,16 @@ async function findExisting(business, slug) {
       );
 
       if (Array.isArray(result.data)) {
-        matches.push(
-          ...result.data.map(item => ({
-            reason: 'slug',
-            id: item.id,
-            slug: item.slug,
-            title: item.title?.rendered || '',
-            status: item.status,
-            link: item.link
-          }))
-        );
+        for (const item of result.data) {
+          addMatch('slug', item);
+        }
       }
     } catch {}
   }
 
-  const name = String(business.name || '').trim();
-
+  /*
+   * Check exact normalized business name.
+   */
   if (name) {
     try {
       const result = await wordpressRequest(
@@ -151,28 +208,64 @@ async function findExisting(business, slug) {
           if (
             existingTitle === normalizedName
           ) {
-            matches.push({
-              reason: 'exact_title',
-              id: item.id,
-              slug: item.slug,
-              title:
-                item.title?.rendered || '',
-              status: item.status,
-              link: item.link
-            });
+            addMatch('exact_title', item);
           }
         }
       }
     } catch {}
   }
 
-  const unique = new Map();
+  /*
+   * Independently check website and phone.
+   */
+  const incomingWebsite =
+    normalizeUrl(business.website);
 
-  for (const match of matches) {
-    unique.set(match.id, match);
+  const incomingPhone =
+    normalizePhone(business.phone);
+
+  if (incomingWebsite || incomingPhone) {
+    try {
+      const listings =
+        await fetchAllListings();
+
+      for (const item of listings) {
+        const meta = item.meta || {};
+
+        const existingWebsite =
+          normalizeUrl(
+            meta._job_website ??
+            item._job_website ??
+            ''
+          );
+
+        const existingPhone =
+          normalizePhone(
+            meta._job_phone ??
+            item._job_phone ??
+            ''
+          );
+
+        if (
+          incomingWebsite &&
+          existingWebsite &&
+          incomingWebsite === existingWebsite
+        ) {
+          addMatch('website', item);
+        }
+
+        if (
+          incomingPhone &&
+          existingPhone &&
+          incomingPhone === existingPhone
+        ) {
+          addMatch('phone', item);
+        }
+      }
+    } catch {}
   }
 
-  return Array.from(unique.values());
+  return Array.from(matches.values());
 }
 
 module.exports = async function handler(req, res) {
@@ -202,12 +295,9 @@ module.exports = async function handler(req, res) {
     /*
      * HARD SAFETY GATE
      *
-     * This endpoint will not create anything
-     * unless the request explicitly contains:
-     *
-     * confirm: "CREATE_DRAFT"
+     * Nothing is created unless the caller
+     * explicitly confirms CREATE_DRAFT.
      */
-
     if (body.confirm !== 'CREATE_DRAFT') {
       return sendJson(res, 400, {
         ok: false,
@@ -237,15 +327,17 @@ module.exports = async function handler(req, res) {
       makeSlug(String(business.name));
 
     /*
-     * SAFETY CHECK:
-     * Never create a listing if an existing
-     * listing is found by slug or exact title.
+     * FINAL SAFETY CHECK
+     *
+     * Never create if an existing listing
+     * matches by slug, exact title, website
+     * or phone.
      */
-
-    const existing = await findExisting(
-      business,
-      slug
-    );
+    const existing =
+      await findExisting(
+        business,
+        slug
+      );
 
     if (existing.length > 0) {
       return sendJson(res, 200, {
@@ -267,9 +359,9 @@ module.exports = async function handler(req, res) {
     /*
      * CREATE AS DRAFT ONLY.
      *
-     * Never publish automatically.
+     * The payload explicitly uses status:
+     * "draft". No publishing occurs here.
      */
-
     const result =
       await wordpressRequest(
         'job-listings',
@@ -279,7 +371,8 @@ module.exports = async function handler(req, res) {
         }
       );
 
-    const created = result.data;
+    const created =
+      result.data;
 
     return sendJson(res, 201, {
       ok: true,
@@ -299,9 +392,14 @@ module.exports = async function handler(req, res) {
       error.message
     );
 
-    return sendJson(res, error.status || 502, {
-      ok: false,
-      error: 'Migration import failed.'
-    });
+    return sendJson(
+      res,
+      error.status || 502,
+      {
+        ok: false,
+        error:
+          'Migration import failed.'
+      }
+    );
   }
 };
