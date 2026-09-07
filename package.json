@@ -1,0 +1,8 @@
+{
+  "name": "shoba-ai-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure API layer for the SHOBA Connect WordPress business directory.",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "vercel dev" }
+}
