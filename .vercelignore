@@ -1,0 +1,17 @@
+# Migration/source artifacts — not production runtime
+SHOBA_Toronto_Master_Discovery_Database_v02.csv
+shoba-*.csv
+shoba-*.json
+migrate-*.js
+retry-*.js
+reconcile-*.js
+inspect-*.js
+
+# Local backups
+*.backup
+*.before-index-integration
+
+# Local/development files
+tests/
+node_modules/
+.DS_Store
