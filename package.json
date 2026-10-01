@@ -10,6 +10,7 @@
     "start": "vercel dev",
     "test:data-quality": "node tests/data-quality.test.js",
     "test:search": "node tests/search.test.js",
-    "test:certification": "npm run test:search && npm run test:data-quality"
+    "test:certification": "npm run test:search && npm run test:data-quality && npm run test:discovery",
+    "test:discovery": "node tests/discovery.test.js"
   }
 }
