@@ -32,4 +32,13 @@ const mismatch = assessCorpus([complete], { expectedCount: 355 });
 assert.equal(mismatch.corpus.actual_record_count, 1);
 assert.equal(mismatch.corpus.count_matches_expected, false);
 
+const report = assessCorpus([complete, { id: 2, title: 'Unknown Ownership', description: 'Black-owned verified business', categories: [1] }], { expectedCount: 2, observedAt: '2026-10-01T00:00:00.000Z' });
+assert.equal(report.schema_version, 'shoba-dq-v1');
+assert.equal(report.mode, 'read_only');
+assert.equal(report.corpus.actual_record_count, 2);
+assert.equal(report.corpus.count_matches_expected, true);
+assert.equal(report.summary.coverage.identity.known, 2);
+assert.equal(report.summary.coverage.ownership.unknown, 1);
+assert.ok(report.assessments[1].unknowns.includes('ownership_status'));
+
 console.log('SHOBA Data Quality V1 tests passed');
