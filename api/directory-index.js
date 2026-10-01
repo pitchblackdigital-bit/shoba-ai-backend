@@ -60,7 +60,7 @@ function buildIndex(listings, context = 'edit', status = 'any') {
   };
 }
 
-async function fetchAllListings() {
+async function fetchAllListings({ context = 'view', status = 'publish' } = {}) {
   const listings = [];
   let page = 1;
   let totalPages = 1;
@@ -71,8 +71,8 @@ async function fetchAllListings() {
       params: {
         per_page: 100,
         page,
-        context: 'edit',
-        status: 'any'
+        context,
+        status
       }
     });
 
@@ -89,7 +89,7 @@ async function fetchAllListings() {
   return listings;
 }
 
-async function getDirectoryIndex({ forceRefresh = false } = {}) {
+async function getDirectoryIndex({ forceRefresh = false, context = 'view', status = 'publish' } = {}) {
   const now = Date.now();
 
   if (
@@ -105,8 +105,8 @@ async function getDirectoryIndex({ forceRefresh = false } = {}) {
   }
 
   const started = performance.now();
-  const listings = await fetchAllListings();
-  const index = buildIndex(listings);
+  const listings = await fetchAllListings({ context, status });
+  const index = buildIndex(listings, context, status);
   const build_ms = Number((performance.now() - started).toFixed(2));
 
   cachedIndex = {
