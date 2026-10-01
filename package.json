@@ -8,6 +8,8 @@
   },
   "scripts": {
     "start": "vercel dev",
-    "test:data-quality": "node tests/data-quality.test.js"
+    "test:data-quality": "node tests/data-quality.test.js",
+    "test:search": "node tests/search.test.js",
+    "test:certification": "npm run test:search && npm run test:data-quality"
   }
 }
