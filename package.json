@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "description": "Secure API layer for the SHOBA Connect WordPress business directory.",
-  "engines": { "node": ">=20" },
-  "scripts": { "start": "vercel dev" }
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "vercel dev",
+    "test:data-quality": "node tests/data-quality.test.js",
+    "test:search": "node tests/search.test.js",
+    "test:certification": "npm run test:search && npm run test:data-quality"
+  }
 }
