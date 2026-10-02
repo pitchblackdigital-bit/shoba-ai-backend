@@ -12,8 +12,8 @@ const listing = {
 
 assert.equal(contextualQuery('in Scarborough', { previous_query: 'Find restaurants' }), 'Find restaurants in Scarborough');
 assert.equal(contextualQuery('Find accountants', { previous_query: 'Find restaurants' }), 'Find accountants');
-assert.equal(contextualQuery('what about Toronto', { previous_query: 'Find restaurants in Scarborough' }), 'Find restaurants in what about Toronto');
-assert.equal(STARTER_PROMPTS.length, 4);
+assert.equal(contextualQuery('what about Toronto', { previous_query: 'Find restaurants in Scarborough' }), 'Find restaurants in Toronto');
+assert.equal(STARTER_PROMPTS.length, 0);
 
 const found = discover([listing], 'Black-owned Caribbean restaurants in Scarborough');
 assert.equal(found.grounded, true);
@@ -30,7 +30,7 @@ assert(!/scarborough/i.test(refined.resolved_query));
 
 const none = discover([listing], 'lawyers in Etobicoke');
 assert.equal(none.total, 0);
-assert.match(none.assistant.message, /couldn't find a published SHOBA listing/);
+assert.equal(none.assistant.message, "I couldn't find a published SHOBA listing matching that search. Try another business name, type or location.");
 
 const summary = summarizeResults({ results: [], total: 0, suggestions: {} });
 assert.equal(summary.result_count, 0);
