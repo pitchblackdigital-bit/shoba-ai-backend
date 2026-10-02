@@ -12,6 +12,7 @@ const listing = {
 
 assert.equal(contextualQuery('in Scarborough', { previous_query: 'Find restaurants' }), 'Find restaurants in Scarborough');
 assert.equal(contextualQuery('Find accountants', { previous_query: 'Find restaurants' }), 'Find accountants');
+assert.equal(contextualQuery('what about Toronto', { previous_query: 'Find restaurants in Scarborough' }), 'Find restaurants in what about Toronto');
 assert.equal(STARTER_PROMPTS.length, 4);
 
 const found = discover([listing], 'Black-owned Caribbean restaurants in Scarborough');
@@ -20,6 +21,11 @@ assert.equal(found.source, 'wordpress_published_directory');
 assert.equal(found.total, 1);
 assert.equal(found.results[0].name, 'Island Kitchen');
 assert.match(found.assistant.message, /1 published SHOBA listing/);
+
+const torontoListing = { ...listing, id: 2, title: 'Toronto Kitchen', slug: 'toronto-kitchen', location: 'Toronto', regions: ['Toronto'], description: 'Caribbean restaurant in Toronto' };
+const refined = discover([listing, torontoListing], 'what about Toronto', { context: { previous_query: 'Find restaurants in Scarborough' } });
+assert.equal(refined.total, 1);
+assert.equal(refined.results[0].name, 'Toronto Kitchen');
 
 const none = discover([listing], 'lawyers in Etobicoke');
 assert.equal(none.total, 0);
