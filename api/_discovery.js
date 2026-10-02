@@ -1,11 +1,6 @@
 const { searchListings, detectFilters } = require('./_search');
 
-const STARTER_PROMPTS = [
-  'Find Black-owned restaurants in Scarborough',
-  'Show me salons in Toronto',
-  'Find a marketing consultant',
-  'Show me accountants in North York'
-];
+const STARTER_PROMPTS = [];
 
 function cleanTurn(value) {
   return String(value || '').trim().replace(/\s+/g, ' ').slice(0, 500);
@@ -25,19 +20,15 @@ function contextualQuery(query, context = {}) {
   if (currentFilters.location && previousFilters.location && currentFilters.location !== previousFilters.location) {
     base = base.replace(new RegExp(previousFilters.location, 'ig'), ' ').replace(/\s+/g, ' ').trim();
   }
-  return `${base} ${current}`.trim().slice(0, 500);
+  const refinementText = current.replace(/^(what about|how about)\s+/i, '').trim();
+  return `${base} ${refinementText}`.trim().slice(0, 500);
 }
 
 function summarizeResults(search) {
   const results = Array.isArray(search.results) ? search.results : [];
   if (!results.length) {
-    const locations = search.suggestions?.locations || [];
-    const categories = search.suggestions?.categories || [];
-    const hints = [...locations.slice(0, 2), ...categories.slice(0, 2)];
     return {
-      message: hints.length
-        ? `I couldn't find a published SHOBA listing matching that search. You can try refining it with: ${hints.join(', ')}.`
-        : "I couldn't find a published SHOBA listing matching that search. Try a different business type or location.",
+      message: "I couldn't find a published SHOBA listing matching that search. Try another business name, type or location.",
       result_count: 0
     };
   }
