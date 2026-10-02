@@ -36,6 +36,8 @@ assert.deepEqual(buildSearchResult(listing, query), {
   url: 'https://shobaconnect.com/listing/island-kitchen', score: calculateRelevance(listing, query),
   match_reasons: ['Black-owned', 'Restaurant', 'Caribbean', 'Scarborough', 'Verified listing']
 });
+const arbitraryNoResults = searchListings([listing], 'zzzz-no-such-shoba-business-9f8e7d6c');
+assert.equal(arbitraryNoResults.total, 0);
 const noResults = searchListings([listing], 'Black-owned lawyers in Etobicoke');
 assert.equal(noResults.total, 0);
 assert.deepEqual(noResults.suggestions, { locations: ['Scarborough', 'Scarborough, Toronto'], categories: ['Restaurant'] });
