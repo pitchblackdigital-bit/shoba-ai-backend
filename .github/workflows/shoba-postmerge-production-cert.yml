@@ -18,7 +18,7 @@ jobs:
           }
           search="$(request '{"query":"Restaurants in Scarborough","per_page":8}')"
           refinement="$(request '{"query":"what about Toronto","context":{"previous_query":"Restaurants in Scarborough"},"per_page":8}')"
-          zero="$(request '{"query":"zzzz-no-such-shoba-business-9f8e7d6c","per_page":8}')"
+          zero="$(request '{"query":"qzxvplmn847293","per_page":8}')"
           SEARCH="$search" REFINEMENT="$refinement" ZERO="$zero" node - <<'NODE'
           const search=JSON.parse(process.env.SEARCH);
           const refinement=JSON.parse(process.env.REFINEMENT);
