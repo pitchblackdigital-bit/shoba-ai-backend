@@ -1,0 +1,73 @@
+name: SHOBA Production Endpoint Probe
+
+on:
+  push:
+    branches:
+      - qa/shoba-production-endpoint-probe-20261002
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe governed public discovery endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://shoba-ai-backend.vercel.app/api/discover-public"
+          body='{"query":"Restaurants in Scarborough","per_page":8}'
+          response="$(curl --fail-with-body --silent --show-error \
+            -X POST "$endpoint" \
+            -H 'Origin: https://shobaconnect.com' \
+            -H 'Content-Type: application/json' \
+            --data "$body")"
+          printf '%s' "$response" > response.json
+          node -e '
+            const fs=require("fs");
+            const r=JSON.parse(fs.readFileSync("response.json","utf8"));
+            if(r.ok!==true) throw new Error("Expected ok=true");
+            if(r.grounded!==true) throw new Error("Expected grounded=true");
+            if(r.source!=="wordpress_published_directory") throw new Error("Unexpected source");
+            if(!Array.isArray(r.results)) throw new Error("Expected results array");
+            console.log(JSON.stringify({ok:r.ok,grounded:r.grounded,source:r.source,total:r.total,resolved_query:r.resolved_query},null,2));
+          '
+
+      - name: Probe contextual refinement
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://shoba-ai-backend.vercel.app/api/discover-public"
+          body='{"query":"what about Toronto","context":{"previous_query":"Restaurants in Scarborough"},"per_page":8}'
+          response="$(curl --fail-with-body --silent --show-error \
+            -X POST "$endpoint" \
+            -H 'Origin: https://shobaconnect.com' \
+            -H 'Content-Type: application/json' \
+            --data "$body")"
+          printf '%s' "$response" > refinement.json
+          node -e '
+            const fs=require("fs");
+            const r=JSON.parse(fs.readFileSync("refinement.json","utf8"));
+            if(r.ok!==true || r.grounded!==true) throw new Error("Contextual refinement was not grounded");
+            if(!r.resolved_query) throw new Error("Missing resolved_query");
+            console.log(JSON.stringify({ok:r.ok,grounded:r.grounded,total:r.total,resolved_query:r.resolved_query},null,2));
+          '
+
+      - name: Probe honest zero-result behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://shoba-ai-backend.vercel.app/api/discover-public"
+          body='{"query":"zzzz-no-such-shoba-business-9f8e7d6c","per_page":8}'
+          response="$(curl --fail-with-body --silent --show-error \
+            -X POST "$endpoint" \
+            -H 'Origin: https://shobaconnect.com' \
+            -H 'Content-Type: application/json' \
+            --data "$body")"
+          printf '%s' "$response" > zero.json
+          node -e '
+            const fs=require("fs");
+            const r=JSON.parse(fs.readFileSync("zero.json","utf8"));
+            if(r.ok!==true || r.grounded!==true) throw new Error("Zero-result response was not grounded");
+            if(r.total!==0) throw new Error("Expected zero results for sentinel query");
+            if(!r.assistant || typeof r.assistant.message!=="string") throw new Error("Missing honest assistant message");
+            console.log(JSON.stringify({ok:r.ok,grounded:r.grounded,total:r.total,message:r.assistant.message},null,2));
+          '
