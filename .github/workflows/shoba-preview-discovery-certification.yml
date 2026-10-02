@@ -1,0 +1,39 @@
+name: SHOBA Preview Discovery Certification
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  certify-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Certify preview discovery behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://shoba-ai-backend-git-qa-shoba-pr-d0fd38-pitch-black-brand-boost.vercel.app/api/discover-public"
+          request () {
+            curl --fail-with-body --silent --show-error -X POST "$endpoint"               -H 'Origin: https://shobaconnect.com'               -H 'Content-Type: application/json'               --data "$1"
+          }
+          search="$(request '{"query":"Restaurants in Scarborough","per_page":8}')"
+          refinement="$(request '{"query":"what about Toronto","context":{"previous_query":"Restaurants in Scarborough"},"per_page":8}')"
+          zero="$(request '{"query":"zzzz-no-such-shoba-business-9f8e7d6c","per_page":8}')"
+          SEARCH="$search" REFINEMENT="$refinement" ZERO="$zero" node - <<'NODE'
+          const search=JSON.parse(process.env.SEARCH);
+          const refinement=JSON.parse(process.env.REFINEMENT);
+          const zero=JSON.parse(process.env.ZERO);
+          for (const [name,r] of Object.entries({search,refinement,zero})) {
+            if(r.ok!==true || r.grounded!==true) throw new Error(name+": not grounded");
+            if(r.source!=="wordpress_published_directory") throw new Error(name+": wrong source");
+          }
+          if(!Array.isArray(search.results)) throw new Error("search: missing results");
+          if(!Array.isArray(refinement.results)) throw new Error("refinement: missing results");
+          if(zero.total!==0 || zero.results.length!==0) throw new Error("zero: expected no results");
+          if(!/couldn't find a published SHOBA listing/i.test(zero.assistant?.message||"")) throw new Error("zero: dishonest/missing no-result message");
+          console.log(JSON.stringify({
+            search:{total:search.total,resolved_query:search.resolved_query},
+            refinement:{total:refinement.total,resolved_query:refinement.resolved_query},
+            zero:{total:zero.total,message:zero.assistant.message}
+          },null,2));
+          NODE
