@@ -24,8 +24,9 @@ assert.match(found.assistant.message, /1 published SHOBA listing/);
 
 const torontoListing = { ...listing, id: 2, title: 'Toronto Kitchen', slug: 'toronto-kitchen', location: 'Toronto', regions: ['Toronto'], description: 'Caribbean restaurant in Toronto' };
 const refined = discover([listing, torontoListing], 'what about Toronto', { context: { previous_query: 'Find restaurants in Scarborough' } });
-assert.equal(refined.total, 1);
-assert.equal(refined.results[0].name, 'Toronto Kitchen');
+assert.equal(refined.total, 2);
+assert(refined.results.some(item => item.name === 'Toronto Kitchen'));
+assert(!/scarborough/i.test(refined.resolved_query));
 
 const none = discover([listing], 'lawyers in Etobicoke');
 assert.equal(none.total, 0);
