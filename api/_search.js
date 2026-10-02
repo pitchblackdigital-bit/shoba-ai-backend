@@ -106,7 +106,7 @@ function buildPlan(query) {
   LOCATIONS.forEach(location => {
     textQuery = textQuery.replace(new RegExp(`\\b${location.replace(' ', '\\s+')}\\b`, 'g'), ' ');
   });
-  textQuery = textQuery.replace(/\b(in|near|around|with|only|show|find|search for)\b/g, ' ')
+  textQuery = textQuery.replace(/\b(what about|how about|in|near|around|with|only|show|find|search for)\b/g, ' ')
     .replace(/\s+/g, ' ').trim();
   return {
     intent: detectIntent(normalized),
@@ -281,7 +281,7 @@ function searchListings(listings, query, options = {}) {
   const matches = all
     .filter(listing => matchListing(listing, plan))
     .map(listing => ({ listing, detail: evaluateMatch(listing, plan), result: buildSearchResult(listing, plan) }))
-    .filter(entry => entry.result.score > 0 || !plan.text_query)
+    .filter(entry => (!plan.text_query || entry.detail.matchedTerms.length > 0) && (entry.result.score > 0 || !plan.text_query))
     .sort((a, b) => b.result.score - a.result.score || String(a.result.name).localeCompare(String(b.result.name)));
   const page = Math.max(1, Number(options.page) || 1);
   const perPage = Math.max(1, Math.min(50, Number(options.per_page || options.perPage) || 20));
