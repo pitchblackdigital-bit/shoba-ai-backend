@@ -1,4 +1,4 @@
-const { searchListings } = require('./_search');
+const { searchListings, detectFilters } = require('./_search');
 
 const STARTER_PROMPTS = [
   'Find Black-owned restaurants in Scarborough',
@@ -17,7 +17,15 @@ function contextualQuery(query, context = {}) {
   if (!previous) return current;
 
   const refinement = /^(only|with|in|near|around|verified|black[- ]owned|show|what about|how about)\b/i.test(current);
-  return refinement ? `${previous} ${current}`.slice(0, 500) : current;
+  if (!refinement) return current;
+
+  let base = previous;
+  const currentFilters = detectFilters(current);
+  const previousFilters = detectFilters(previous);
+  if (currentFilters.location && previousFilters.location && currentFilters.location !== previousFilters.location) {
+    base = base.replace(new RegExp(previousFilters.location, 'ig'), ' ').replace(/\s+/g, ' ').trim();
+  }
+  return `${base} ${current}`.trim().slice(0, 500);
 }
 
 function summarizeResults(search) {
