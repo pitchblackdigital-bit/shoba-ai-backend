@@ -29,6 +29,7 @@ jobs:
             if(!Array.isArray(r.results)) throw new Error(name+": missing results array");
           }
           if(/scarborough/i.test(refinement.resolved_query||"")) throw new Error("refinement: previous location was not replaced");
+          console.log("LIVE_ZERO_RESULT", JSON.stringify({total:zero.total, names:zero.results.map(x=>x.name), resolved_query:zero.resolved_query}));
           if(zero.total!==0 || zero.results.length!==0) throw new Error("zero: expected no results");
           if(!/couldn't find a published SHOBA listing/i.test(zero.assistant?.message||"")) throw new Error("zero: missing honest no-result message");
           console.log(JSON.stringify({
